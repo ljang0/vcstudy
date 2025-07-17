@@ -302,7 +302,9 @@ function ScenarioSelection() {
 
   const handleContinue = () => {
     localStorage.setItem('selectedScenarios', JSON.stringify(selectedScenarios));
-    navigate('/scenario-writing');
+    if (selectedScenarios.length > 0) {
+      navigate(`/scenario/${selectedScenarios[0]}/write`);
+    }
   };
 
   return (
@@ -394,7 +396,7 @@ function ScenarioSelection() {
 // Combined Scenario Writing and Voice Recording Page
 function ScenarioWritingAndRecording() {
   const navigate = useNavigate();
-  const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
+  const { scenarioId } = useParams();
   const [scenarios, setScenarios] = useState([]);
   const [scenarioContent, setScenarioContent] = useState({});
   const [recordings, setRecordings] = useState({});
@@ -462,30 +464,25 @@ function ScenarioWritingAndRecording() {
     }
   ];
 
-  const currentScenario = scenarios[currentScenarioIndex];
-  const currentContent = scenarioContent[currentScenario?.id] || '';
-
   useEffect(() => {
     const selectedScenarioIds = JSON.parse(localStorage.getItem('selectedScenarios') || '[]');
     const selectedScenarios = allScenarios.filter(scenario => selectedScenarioIds.includes(scenario.id));
     setScenarios(selectedScenarios);
-    
     const savedContent = JSON.parse(localStorage.getItem('scenarioContent') || '{}');
     setScenarioContent(savedContent);
-    
     const savedRecordings = JSON.parse(localStorage.getItem('voiceRecordings') || '{}');
     setRecordings(savedRecordings);
-    
-    // Clear generated script and prompt for new scenario
     setGeneratedScript('');
     setChatGPTPrompt('');
   }, []);
 
   useEffect(() => {
-    // Clear generated script and prompt when scenario changes
     setGeneratedScript('');
     setChatGPTPrompt('');
-  }, [currentScenarioIndex]);
+  }, [scenarioId]);
+
+  const currentScenario = scenarios.find(s => s.id === parseInt(scenarioId));
+  const currentContent = scenarioContent[parseInt(scenarioId)] || '';
 
   const generateChatGPTPrompt = (scenario) => {
     return `Write a brief, natural script for a voice recording in the following scenario:
@@ -559,28 +556,34 @@ Please provide only the script text, no explanations.`;
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      
-      const chunks = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        setAudioUrl(URL.createObjectURL(blob));
-      };
-      
-      recorder.start();
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      } catch (e) {
+        console.warn('audio/webm;codecs=opus not supported, falling back to audio/webm', e);
+        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      }
       setMediaRecorder(recorder);
+      const chunks = [];
+      recorder.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        console.log('Recorded blob:', blob);
+        const url = URL.createObjectURL(blob);
+        setAudioBlob(blob);
+        setAudioUrl(url);
+      };
+      recorder.start();
       setIsRecording(true);
       setRecordingTime(0);
-      
-      // Start timer
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Failed to start recording. Please check microphone permissions.');
+      console.error('Error accessing microphone or starting MediaRecorder:', error);
+      alert('Please allow microphone access to record your voice.');
     }
   };
 
@@ -594,7 +597,8 @@ Please provide only the script text, no explanations.`;
   };
 
   const playRecording = () => {
-    if (audioRef.current) {
+    if (audioRef.current && audioUrl) {
+      audioRef.current.src = audioUrl;
       audioRef.current.play();
       setIsPlaying(true);
     }
@@ -663,7 +667,7 @@ Please provide only the script text, no explanations.`;
       localStorage.setItem('scenarioContent', JSON.stringify(savedContent));
       
       // Navigate to individual scenario evaluation
-      navigate(`/scenario-evaluation/${currentScenario.id}`);
+      navigate(`/scenario/${currentScenario.id}/evaluation`);
     } else {
       alert('Please complete both the script and recording before continuing.');
     }
@@ -708,7 +712,7 @@ Please provide only the script text, no explanations.`;
             color: 'rgba(255,255,255,0.9)',
             fontWeight: 400
           }}>
-            Scenario {currentScenarioIndex + 1} of {scenarios.length}
+            Scenario {currentScenario.title}
           </Typography>
         </Box>
 
@@ -797,7 +801,7 @@ Please provide only the script text, no explanations.`;
                   value={currentContent}
                   onChange={(e) => setScenarioContent(prev => ({
                     ...prev,
-                    [currentScenario.id]: e.target.value
+                    [parseInt(scenarioId)]: e.target.value
                   }))}
                   placeholder="Write your script here or use the generated script above..."
                   variant="outlined"
@@ -873,6 +877,16 @@ Please provide only the script text, no explanations.`;
                       >
                         Re-record
                       </Button>
+                      <Button
+                        variant="outlined"
+                        component="a"
+                        href={audioUrl}
+                        download={`recording-${currentScenario?.id || 'unknown'}.webm`}
+                        size="large"
+                        sx={{ py: 2 }}
+                      >
+                        Download Recording
+                      </Button>
                     </>
                   )}
                 </Box>
@@ -890,8 +904,10 @@ Please provide only the script text, no explanations.`;
         {audioRef && (
           <audio
             ref={audioRef}
+            src={audioUrl || ''}
+            controls // Remove this line after debugging if you want to hide controls
             onEnded={handleAudioEnded}
-            style={{ display: 'none' }}
+            style={{ width: '100%', marginTop: 16 }}
           />
         )}
 
@@ -913,7 +929,7 @@ Please provide only the script text, no explanations.`;
               }
             }}
           >
-            {currentScenarioIndex < scenarios.length - 1 ? 'Next Scenario' : 'Continue to Evaluation'}
+            {currentScenario.title}
           </Button>
         </Box>
       </Box>
@@ -1276,31 +1292,33 @@ function VoiceRecording() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      } catch (e) {
+        console.warn('audio/webm;codecs=opus not supported, falling back to audio/webm', e);
+        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      }
+      setMediaRecorder(recorder);
       const chunks = [];
-      mediaRecorderRef.current.ondataavailable = (event) => {
+      recorder.ondataavailable = (event) => {
         chunks.push(event.data);
       };
-      
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        console.log('Recorded blob:', blob);
         const url = URL.createObjectURL(blob);
         setAudioBlob(blob);
         setAudioUrl(url);
       };
-      
-      mediaRecorderRef.current.start();
+      recorder.start();
       setIsRecording(true);
       setRecordingTime(0);
-      
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-      
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error('Error accessing microphone or starting MediaRecorder:', error);
       alert('Please allow microphone access to record your voice.');
     }
   };
@@ -1361,15 +1379,8 @@ function VoiceRecording() {
         };
         localStorage.setItem('voiceRecordings', JSON.stringify(savedRecordings));
       });
-      // Continue to next scenario or evaluation
-      if (currentScenarioIndex < scenarios.length - 1) {
-        setCurrentScenarioIndex(currentScenarioIndex + 1);
-        setAudioBlob(null);
-        setAudioUrl(null);
-        setRecordingTime(0);
-      } else {
-        navigate('/evaluation');
-      }
+      // Go to survey for this scenario
+      navigate(`/individual-evaluation/${currentScenario.id}`);
       return;
     }
     if (currentScenarioIndex < scenarios.length - 1) {
@@ -1378,7 +1389,7 @@ function VoiceRecording() {
       setAudioUrl(null);
       setRecordingTime(0);
     } else {
-      navigate('/evaluation');
+      navigate('/system-evaluation');
     }
   };
 
@@ -1552,6 +1563,16 @@ function VoiceRecording() {
                     >
                       Re-record
                     </Button>
+                    <Button
+                      variant="outlined"
+                      component="a"
+                      href={audioUrl}
+                      download={`recording-${currentScenario?.id || 'unknown'}.webm`}
+                      size="large"
+                      sx={{ py: 2 }}
+                    >
+                      Download Recording
+                    </Button>
                   </Box>
                 )}
               </Box>
@@ -1697,6 +1718,7 @@ function VoiceEvaluation() {
 
   const currentScenario = scenarios[currentScenarioIndex];
   const currentRecording = recordings[currentScenario?.id];
+  const audioUrl = currentRecording && currentRecording.url ? currentRecording.url : '';
 
   const playRecording = (scenarioId) => {
     const recording = recordings[scenarioId];
@@ -1866,8 +1888,10 @@ function VoiceEvaluation() {
         {audioRef && (
           <audio
             ref={audioRef}
+            src={audioUrl || ''}
+            controls // Remove this line after debugging if you want to hide controls
             onEnded={handleAudioEnded}
-            style={{ display: 'none' }}
+            style={{ width: '100%', marginTop: 16 }}
           />
         )}
 
@@ -1900,18 +1924,18 @@ function VoiceEvaluation() {
 // Voice Customization Page
 function VoiceCustomization() {
   const navigate = useNavigate();
+  const { scenarioId } = useParams();
   const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
   const [scenarios, setScenarios] = useState([]);
   const [recordings, setRecordings] = useState({});
   const [customizations, setCustomizations] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
-  
   // Web Audio API state
   const [pitch, setPitch] = useState(0); // -12 to 12 semitones
   const [speed, setSpeed] = useState(1); // 0.5 to 2.0
   const [isPlayingCustomized, setIsPlayingCustomized] = useState(false);
-  
+  const [saveStatus, setSaveStatus] = useState('');
   const audioRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioBufferRef = useRef(null);
@@ -1970,6 +1994,7 @@ function VoiceCustomization() {
 
   const currentScenario = scenarios[currentScenarioIndex];
   const currentRecording = recordings[currentScenario?.id];
+  const audioUrl = currentRecording && currentRecording.url ? currentRecording.url : '';
 
   useEffect(() => {
     const selectedScenarioIds = JSON.parse(localStorage.getItem('selectedScenarios') || '[]');
@@ -2091,15 +2116,16 @@ function VoiceCustomization() {
   };
 
   const handleNext = () => {
-    // Save current customization with enhanced metadata
+    // Save current customization with enhanced metadata, merging with any existing customizedBlob
     const savedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
+    const prev = savedCustomizations[currentScenario.id] || {};
     savedCustomizations[currentScenario.id] = {
+      ...prev,
       // Customization settings
       settings: {
         pitch: pitch,
         speed: speed
       },
-      
       // Metadata
       scenario: {
         id: currentScenario.id,
@@ -2108,23 +2134,116 @@ function VoiceCustomization() {
         category: currentScenario.category
       },
       timestamp: new Date().toISOString(),
-      
       // Customization metadata
       customizationType: 'pitch_and_speed',
       pitchRange: { min: -12, max: 12, step: 1 },
       speedRange: { min: 0.5, max: 2.0, step: 0.1 }
     };
     localStorage.setItem('voiceCustomizations', JSON.stringify(savedCustomizations));
+    // Always go to revised evaluation for this scenario
+    navigate(`/scenario/${scenarioId}/revised-evaluation`);
+    // Immediately reload and update state
+    const updatedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
+    setCustomizations(updatedCustomizations);
+  };
 
-    if (currentScenarioIndex < scenarios.length - 1) {
-      setCurrentScenarioIndex(currentScenarioIndex + 1);
-      // Reset pitch and speed for next scenario
-      setPitch(0);
-      setSpeed(1);
-    } else {
-      navigate('/revised-evaluation');
+  // Move saveCustomizedVoice here
+  const saveCustomizedVoice = async () => {
+    if (!audioBufferRef.current) {
+      setSaveStatus('No audio loaded.');
+      return;
+    }
+    try {
+      // Create OfflineAudioContext for rendering
+      const sampleRate = audioBufferRef.current.sampleRate;
+      const length = audioBufferRef.current.length;
+      const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
+        audioBufferRef.current.numberOfChannels,
+        length,
+        sampleRate
+      );
+      // Create buffer source
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      // Apply pitch and speed
+      const pitchRatio = Math.pow(2, pitch / 12);
+      source.playbackRate.value = speed * pitchRatio;
+      // Connect to destination
+      source.connect(offlineCtx.destination);
+      source.start();
+      // Render
+      const renderedBuffer = await offlineCtx.startRendering();
+      // Encode to WAV (simple PCM)
+      const wavBlob = bufferToWavBlob(renderedBuffer);
+      // Save to localStorage, merging with any existing settings/metadata
+      const savedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
+      const prev = savedCustomizations[currentScenario.id] || {};
+      savedCustomizations[currentScenario.id] = {
+        ...prev,
+        customizedBlob: {
+          type: wavBlob.type,
+          data: Array.from(new Uint8Array(await wavBlob.arrayBuffer())),
+          size: wavBlob.size
+        }
+      };
+      localStorage.setItem('voiceCustomizations', JSON.stringify(savedCustomizations));
+      setSaveStatus('Customized voice saved!');
+      // Immediately reload and update state
+      const updatedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
+      setCustomizations(updatedCustomizations);
+    } catch (err) {
+      setSaveStatus('Failed to save customized voice.');
+      console.error(err);
     }
   };
+
+  // Helper: encode AudioBuffer to WAV Blob
+  function bufferToWavBlob(buffer) {
+    // Only supports mono/stereo, 16-bit PCM
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    const samples = buffer.length * numChannels;
+    const blockAlign = numChannels * bitDepth / 8;
+    const byteRate = sampleRate * blockAlign;
+    const dataLength = samples * bitDepth / 8;
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    // RIFF identifier
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    // fmt chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, format, true); // AudioFormat
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    // data chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    // Write PCM samples
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        let sample = buffer.getChannelData(ch)[i];
+        sample = Math.max(-1, Math.min(1, sample));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  }
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
 
   if (!currentScenario) {
     return (
@@ -2292,6 +2411,23 @@ function VoiceCustomization() {
                 >
                   {isPlayingCustomized ? 'Stop' : 'Play'} Customized
                 </Button>
+
+                {/* Save Customized Voice Button */}
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  size="large"
+                  onClick={saveCustomizedVoice}
+                  disabled={!currentRecording}
+                  sx={{ mt: 2 }}
+                >
+                  Save Customized Voice
+                </Button>
+                {saveStatus && (
+                  <Typography variant="body2" color={saveStatus.includes('saved') ? 'success.main' : 'error.main'} sx={{ mt: 1 }}>
+                    {saveStatus}
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Box>
@@ -2352,8 +2488,10 @@ function VoiceCustomization() {
         {audioRef && (
           <audio
             ref={audioRef}
+            src={audioUrl || ''}
+            controls // Remove this line after debugging if you want to hide controls
             onEnded={handleAudioEnded}
-            style={{ display: 'none' }}
+            style={{ width: '100%', marginTop: 16 }}
           />
         )}
 
@@ -2382,7 +2520,7 @@ function VoiceCustomization() {
 // Revised Voice Evaluation Page
 function RevisedVoiceEvaluation() {
   const navigate = useNavigate();
-  const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
+  const { scenarioId } = useParams();
   const [scenarios, setScenarios] = useState([]);
   const [recordings, setRecordings] = useState({});
   const [customizations, setCustomizations] = useState({});
@@ -2395,6 +2533,7 @@ function RevisedVoiceEvaluation() {
   const [isPlayingCustomized, setIsPlayingCustomized] = useState(false);
   
   const audioRef = useRef(null);
+  const customizedAudioRef = useRef(null); // <-- add this
   const audioContextRef = useRef(null);
   const audioBufferRef = useRef(null);
   const audioSourceRef = useRef(null);
@@ -2478,9 +2617,13 @@ function RevisedVoiceEvaluation() {
     }
   ];
 
+  // Derive currentScenarioIndex and currentScenario from scenarios and scenarioId
+  const currentScenarioIndex = scenarios.findIndex(s => s.id === parseInt(scenarioId));
   const currentScenario = scenarios[currentScenarioIndex];
+
   const currentRecording = recordings[currentScenario?.id];
   const currentCustomization = customizations[currentScenario?.id];
+  const audioUrl = currentRecording && currentRecording.url ? currentRecording.url : '';
 
   useEffect(() => {
     const selectedScenarioIds = JSON.parse(localStorage.getItem('selectedScenarios') || '[]');
@@ -2593,22 +2736,41 @@ function RevisedVoiceEvaluation() {
   };
 
   const playCustomizedRecording = () => {
-    if (currentRecording && currentCustomization) {
-      playCustomizedAudio();
+    if (currentCustomization && currentCustomization.customizedBlob) {
+      const { type, data } = currentCustomization.customizedBlob;
+      const blob = new Blob([new Uint8Array(data)], { type });
+      const url = URL.createObjectURL(blob);
+      customizedAudioRef.current.src = url;
+      customizedAudioRef.current.play();
+      setIsPlaying(true);
+      setPlayingVersion('customized');
+      // Clean up the URL after playback ends
+      customizedAudioRef.current.onended = () => {
+        URL.revokeObjectURL(url);
+        setIsPlaying(false);
+        setPlayingVersion(null);
+      };
     } else {
-      alert('No customized voice available. Please complete the voice customization step first.');
+      // Fallback: play with WebAudio if customizedBlob is missing (should not happen if user saved)
+      playCustomizedAudio();
     }
   };
 
   const stopPlaying = () => {
-    if (audioRef.current) {
+    if (playingVersion === 'customized' && customizedAudioRef.current) {
+      customizedAudioRef.current.pause();
+      customizedAudioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setCurrentPlayingId(null);
+      setPlayingVersion(null);
+    } else if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
       setCurrentPlayingId(null);
       setPlayingVersion(null);
     }
-    // Also stop customized audio if playing
+    // Also stop customized audio if playing via WebAudio
     if (isPlayingCustomized) {
       stopCustomizedAudio();
     }
@@ -2663,9 +2825,9 @@ function RevisedVoiceEvaluation() {
       evaluationType: 'revised_comparison'
     };
     localStorage.setItem('revisedVoiceEvaluations', JSON.stringify(savedEvaluations));
-
     if (currentScenarioIndex < scenarios.length - 1) {
-      setCurrentScenarioIndex(currentScenarioIndex + 1);
+      const nextScenario = scenarios[currentScenarioIndex + 1];
+      navigate(`/scenario/${nextScenario.id}/write`);
     } else {
       navigate('/system-evaluation');
     }
@@ -2733,8 +2895,13 @@ function RevisedVoiceEvaluation() {
                   Your customization settings:
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Pitch: {currentCustomization.pitch || 0} semitones • Speed: {currentCustomization.speed || 1.0}x
+                  Pitch: {(currentCustomization.settings ? currentCustomization.settings.pitch : currentCustomization.pitch) || 0} semitones • Speed: {(currentCustomization.settings ? currentCustomization.settings.speed : currentCustomization.speed) || 1.0}x
                 </Typography>
+                {(!currentCustomization.customizedBlob) && (
+                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                    Customized voice not saved. Please return to the customization step and click "Save Customized Voice" to enable playback here.
+                  </Typography>
+                )}
               </Box>
             )}
           </CardContent>
@@ -2789,7 +2956,7 @@ function RevisedVoiceEvaluation() {
                 fullWidth
                 startIcon={isPlaying && playingVersion === 'customized' ? <StopIcon /> : <PlayArrowIcon />}
                 onClick={isPlaying && playingVersion === 'customized' ? stopPlaying : playCustomizedRecording}
-                disabled={!currentRecording}
+                disabled={!currentRecording || (currentCustomization && !currentCustomization.customizedBlob)}
                 size="large"
                 sx={{ py: 2 }}
               >
@@ -2851,10 +3018,19 @@ function RevisedVoiceEvaluation() {
         {audioRef && (
           <audio
             ref={audioRef}
+            src={audioUrl || ''}
+            controls // Remove this line after debugging if you want to hide controls
             onEnded={handleAudioEnded}
-            style={{ display: 'none' }}
+            style={{ width: '100%', marginTop: 16 }}
           />
         )}
+
+        {/* Add this audio element for customized playback */}
+        <audio
+          ref={customizedAudioRef}
+          style={{ display: 'none' }}
+          onEnded={handleAudioEnded}
+        />
 
         <Box sx={{ textAlign: 'center' }}>
           <Button
@@ -2923,7 +3099,8 @@ function SystemEvaluation() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const selectedScenarios = JSON.parse(localStorage.getItem('selectedScenarios') || '[]');
     // Save system evaluation with enhanced metadata
     const systemEvaluation = {
       // Evaluation responses
@@ -2936,7 +3113,7 @@ function SystemEvaluation() {
       
       // User and study context
       userData: JSON.parse(localStorage.getItem('userData') || '{}'),
-      selectedScenarios: JSON.parse(localStorage.getItem('selectedScenarios') || '[]'),
+      selectedScenarios: selectedScenarios,
       
       // Study data references
       scenarioContent: JSON.parse(localStorage.getItem('scenarioContent') || '{}'),
@@ -2969,6 +3146,7 @@ function SystemEvaluation() {
     // Show completion message
     alert('Thank you for participating in our voice cloning study! Your responses have been saved.');
     
+    await handleExport();
     // In a real implementation, you might want to send this data to a server
     console.log('Complete study data:', systemEvaluation);
   };
@@ -3057,7 +3235,7 @@ function SystemEvaluation() {
             </Typography>
             <Box component="ul" sx={{ pl: 2 }}>
               <Typography component="li" variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-                Selected 3 scenarios for voice synthesis
+                Selected scenarios for voice synthesis
               </Typography>
               <Typography component="li" variant="body1" color="text.secondary" sx={{ mb: 1 }}>
                 Written content for each scenario (with optional ChatGPT assistance)
@@ -3178,112 +3356,127 @@ function IndividualScenarioEvaluation() {
   const { scenarioId } = useParams();
   const [evaluations, setEvaluations] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentScenario, setCurrentScenario] = useState(null);
   const [scenarios, setScenarios] = useState([]);
-  const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
-  
+  const [audioUrl, setAudioUrl] = useState('');
   const audioRef = useRef(null);
+
+  // Derive currentScenario and currentScenarioIndex directly from scenarios and scenarioId
+  const currentScenarioIndex = scenarios.findIndex(s => s.id === parseInt(scenarioId));
+  const currentScenario = scenarios[currentScenarioIndex];
 
   const surveyQuestions = [
     {
-      id: 'clarity',
-      question: 'How clear and understandable was your voice recording?',
-      scale: ['Very unclear', 'Somewhat unclear', 'Neutral', 'Somewhat clear', 'Very clear']
-    },
-    {
       id: 'naturalness',
       question: 'How natural did your voice sound?',
-      scale: ['Very unnatural', 'Somewhat unnatural', 'Neutral', 'Somewhat natural', 'Very natural']
+      scale: ['Very Unnatural', 'Unnatural', 'Neutral', 'Natural', 'Very Natural']
+    },
+    {
+      id: 'expressiveness',
+      question: 'How expressive was your voice?',
+      scale: ['Not Expressive', 'Slightly Expressive', 'Moderately Expressive', 'Expressive', 'Very Expressive']
+    },
+    {
+      id: 'clarity',
+      question: 'How clear was your voice?',
+      scale: ['Very Unclear', 'Unclear', 'Somewhat Clear', 'Clear', 'Very Clear']
     },
     {
       id: 'confidence',
-      question: 'How confident did you sound in your recording?',
-      scale: ['Very unconfident', 'Somewhat unconfident', 'Neutral', 'Somewhat confident', 'Very confident']
+      question: 'How confident did you sound?',
+      scale: ['Not Confident', 'Slightly Confident', 'Moderately Confident', 'Confident', 'Very Confident']
     },
     {
       id: 'appropriateness',
       question: 'How appropriate was your voice for this scenario?',
-      scale: ['Very inappropriate', 'Somewhat inappropriate', 'Neutral', 'Somewhat appropriate', 'Very appropriate']
-    }
-  ];
-
-  const allScenarios = [
-    {
-      id: 1,
-      title: "Online Team Meeting",
-      description: "Formal • Synchronous • Private",
-      category: "Formal X Synchronous X Private"
-    },
-    {
-      id: 2,
-      title: "Video Portfolio to Recruiter",
-      description: "Formal • Asynchronous • Private",
-      category: "Formal X Asynchronous X Private"
-    },
-    {
-      id: 3,
-      title: "Virtual Conference Presentation",
-      description: "Formal • Synchronous • Public",
-      category: "Formal X Synchronous X Public"
-    },
-    {
-      id: 4,
-      title: "Fund-Raising Promotion",
-      description: "Formal • Asynchronous • Public",
-      category: "Formal X Asynchronous X Public"
-    },
-    {
-      id: 5,
-      title: "Online Game with Friends",
-      description: "Informal • Synchronous • Private",
-      category: "Informal X Synchronous X Private"
-    },
-    {
-      id: 6,
-      title: "Sending a Birthday Message",
-      description: "Informal • Asynchronous • Private",
-      category: "Informal X Asynchronous X Private"
-    },
-    {
-      id: 7,
-      title: "Random Voice Chat",
-      description: "Informal • Synchronous • Public",
-      category: "Informal X Synchronous X Public"
-    },
-    {
-      id: 8,
-      title: "Voice Profile on Dating App",
-      description: "Informal • Asynchronous • Public",
-      category: "Informal X Asynchronous X Public"
+      scale: ['Very Inappropriate', 'Inappropriate', 'Neutral', 'Appropriate', 'Very Appropriate']
     }
   ];
 
   useEffect(() => {
     const selectedScenarioIds = JSON.parse(localStorage.getItem('selectedScenarios') || '[]');
+    const allScenarios = [
+      {
+        id: 1,
+        title: "Online Team Meeting",
+        description: "Formal • Synchronous • Private",
+        category: "Formal X Synchronous X Private"
+      },
+      {
+        id: 2,
+        title: "Video Portfolio to Recruiter",
+        description: "Formal • Asynchronous • Private",
+        category: "Formal X Asynchronous X Private"
+      },
+      {
+        id: 3,
+        title: "Virtual Conference Presentation",
+        description: "Formal • Synchronous • Public",
+        category: "Formal X Synchronous X Public"
+      },
+      {
+        id: 4,
+        title: "Fund-Raising Promotion",
+        description: "Formal • Asynchronous • Public",
+        category: "Formal X Asynchronous X Public"
+      },
+      {
+        id: 5,
+        title: "Online Game with Friends",
+        description: "Informal • Synchronous • Private",
+        category: "Informal X Synchronous X Private"
+      },
+      {
+        id: 6,
+        title: "Sending a Birthday Message",
+        description: "Informal • Asynchronous • Private",
+        category: "Informal X Asynchronous X Private"
+      },
+      {
+        id: 7,
+        title: "Random Voice Chat",
+        description: "Informal • Synchronous • Public",
+        category: "Informal X Synchronous X Public"
+      },
+      {
+        id: 8,
+        title: "Voice Profile on Dating App",
+        description: "Informal • Asynchronous • Public",
+        category: "Informal X Asynchronous X Public"
+      }
+    ];
     const selectedScenarios = allScenarios.filter(scenario => selectedScenarioIds.includes(scenario.id));
     setScenarios(selectedScenarios);
-    
-    const currentScenario = selectedScenarios.find(s => s.id === parseInt(scenarioId));
-    setCurrentScenario(currentScenario);
-    
-    const currentIndex = selectedScenarios.findIndex(s => s.id === parseInt(scenarioId));
-    setCurrentScenarioIndex(currentIndex);
-    
+    // Load audio URL for this scenario
+    const recordings = JSON.parse(localStorage.getItem('voiceRecordings') || '{}');
+    const rec = recordings[scenarioId];
+    setAudioUrl(rec && rec.url ? rec.url : '');
     // Load existing evaluations
     const savedEvaluations = JSON.parse(localStorage.getItem('individualEvaluations') || '{}');
     setEvaluations(savedEvaluations[scenarioId] || {});
   }, [scenarioId]);
 
-  const playRecording = () => {
-    const recordings = JSON.parse(localStorage.getItem('voiceRecordings') || '{}');
-    const recording = recordings[scenarioId];
-    
-    if (recording && recording.url) {
-      if (audioRef.current) {
-        audioRef.current.src = recording.url;
-        audioRef.current.play();
-        setIsPlaying(true);
+  useEffect(() => {
+    // Derive currentScenario from scenarios and scenarioId
+    const currentScenario = scenarios.find(s => s.id === parseInt(scenarioId));
+    if (currentScenario) {
+      const savedRecordings = JSON.parse(localStorage.getItem('voiceRecordings') || '{}');
+      const rec = savedRecordings[currentScenario.id];
+      if (rec && rec.url) {
+        setAudioUrl(rec.url);
+      } else if (rec && rec.blob) {
+        const blob = new Blob([new Uint8Array(rec.blob.data)], { type: 'audio/webm' });
+        setAudioUrl(URL.createObjectURL(blob));
+      } else {
+        setAudioUrl('');
       }
+    }
+  }, [scenarios, scenarioId]);
+
+  const playRecording = () => {
+    if (audioRef.current && audioUrl) {
+      audioRef.current.src = audioUrl;
+      audioRef.current.play().catch(e => console.error('Audio playback error:', e));
+      setIsPlaying(true);
     }
   };
 
@@ -3312,7 +3505,6 @@ function IndividualScenarioEvaluation() {
     savedEvaluations[scenarioId] = {
       // Evaluation responses
       responses: evaluations,
-      
       // Metadata
       scenario: {
         id: currentScenario.id,
@@ -3321,7 +3513,6 @@ function IndividualScenarioEvaluation() {
         category: currentScenario.category
       },
       timestamp: new Date().toISOString(),
-      
       // Question metadata for analysis
       questions: surveyQuestions.map(q => ({
         id: q.id,
@@ -3330,14 +3521,8 @@ function IndividualScenarioEvaluation() {
       }))
     };
     localStorage.setItem('individualEvaluations', JSON.stringify(savedEvaluations));
-    
-    // Navigate to next scenario or final evaluation
-    if (currentScenarioIndex < scenarios.length - 1) {
-      const nextScenario = scenarios[currentScenarioIndex + 1];
-      navigate(`/scenario-evaluation/${nextScenario.id}`);
-    } else {
-      navigate('/evaluation');
-    }
+    // Always go to customization for this scenario
+    navigate(`/scenario/${scenarioId}/customization`);
   };
 
   const isEvaluationComplete = () => {
@@ -3406,8 +3591,9 @@ function IndividualScenarioEvaluation() {
             
             <audio
               ref={audioRef}
-              onEnded={handleAudioEnded}
-              style={{ display: 'none' }}
+              src={audioUrl || undefined}
+              controls
+              style={{ width: '100%', marginTop: 16 }}
             />
           </CardContent>
         </Card>
@@ -3488,12 +3674,11 @@ function App() {
         <Routes>
           <Route path="/" element={<UserInfo />} />
           <Route path="/scenario-selection" element={<ScenarioSelection />} />
-          <Route path="/scenario-writing" element={<ScenarioWritingAndRecording />} />
-          <Route path="/evaluation" element={<VoiceEvaluation />} />
-          <Route path="/customization" element={<VoiceCustomization />} />
-          <Route path="/revised-evaluation" element={<RevisedVoiceEvaluation />} />
+          <Route path="/scenario/:scenarioId/write" element={<ScenarioWritingAndRecording />} />
+          <Route path="/scenario/:scenarioId/evaluation" element={<IndividualScenarioEvaluation />} />
+          <Route path="/scenario/:scenarioId/customization" element={<VoiceCustomization />} />
+          <Route path="/scenario/:scenarioId/revised-evaluation" element={<RevisedVoiceEvaluation />} />
           <Route path="/system-evaluation" element={<SystemEvaluation />} />
-          <Route path="/scenario-evaluation/:scenarioId" element={<IndividualScenarioEvaluation />} />
         </Routes>
       </Box>
     </ThemeProvider>
