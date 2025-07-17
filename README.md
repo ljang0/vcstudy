@@ -43,7 +43,12 @@ This is a React web app for an HCI user study on voice cloning personalities. It
 - **All data is stored in your browser's localStorage.**
 - **No server or backend is required.**
 - If you want to reset your session, just re-enter your NetID and name on the login page.
-- For ChatGPT script generation, you must provide your own OpenAI API key in a `.env` file (see CARTESIA_SETUP.md if needed).
+- For ChatGPT script generation, you must provide your own OpenAI API key in a `.env` file in the project root:
+
+```
+VITE_OPENAI_API_KEY=sk-...
+```
+Replace `sk-...` with your actual OpenAI API key. This file should **NOT** be committed to git or shared publicly.
 
 ## Troubleshooting
 - If you see errors about missing dependencies, run `npm install` again.
