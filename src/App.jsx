@@ -357,7 +357,6 @@ function ScenarioSelection() {
                   )}
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>{scenario.detailedDescription}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, fontWeight: 500 }}>{scenario.category}</Typography>
                 <FormControlLabel
                   control={<Checkbox checked={selectedScenarios.includes(scenario.id)} onChange={() => handleScenarioToggle(scenario.id)} sx={{ color: '#6366f1', '&.Mui-checked': { color: '#6366f1' } }} />}
                   label={selectedScenarios.includes(scenario.id) ? 'Selected' : 'Select'}
