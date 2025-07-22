@@ -62,3 +62,39 @@ Replace `sk-...` with your actual OpenAI API key. This file should **NOT** be co
 
 ## License
 This project is for academic research use only.
+
+---
+
+This error means you tried to navigate to `/scenario-writing`, but that route no longer exists after the refactor.  
+**Now, every scenario step must use the new per-scenario route format:**
+
+- `/scenario/:scenarioId/write`
+- `/scenario/:scenarioId/evaluation`
+- `/scenario/:scenarioId/customization`
+- `/scenario/:scenarioId/revised-evaluation`
+
+---
+
+## **How to Fix**
+
+1. **Update all navigation code** (e.g., `navigate(...)` calls, links, and buttons) to use the new route format and always include the current `scenarioId`.
+
+2. **Update any default redirects** (e.g., after scenario selection, go to the first scenario’s `/write` page).
+
+---
+
+## **Example:**
+Instead of:
+```js
+navigate('/scenario-writing');
+```
+Use:
+```js
+<code_block_to_apply_changes_from>
+```
+Where `scenarioId` is the current scenario’s ID.
+
+---
+
+## **Would you like me to patch all navigation logic to use the new per-scenario routes?**
+This will ensure the user always goes to the correct step for the current scenario and never hits a missing route.

@@ -2008,9 +2008,10 @@ function VoiceCustomization() {
   // Load audio buffer when current recording changes
   useEffect(() => {
     if (currentRecording && currentRecording.blob) {
+      console.log('Loading audio buffer for scenario:', currentScenario?.id, currentScenario?.title);
       loadAudioBuffer(currentRecording.blob);
     }
-  }, [currentRecording]);
+  }, [currentRecording, currentScenario]);
 
   // Initialize Web Audio API
   const initializeAudioContext = () => {
@@ -2034,7 +2035,7 @@ function VoiceCustomization() {
       
       const arrayBuffer = await realBlob.arrayBuffer();
       audioBufferRef.current = await audioContextRef.current.decodeAudioData(arrayBuffer);
-      console.log('Audio buffer loaded:', audioBufferRef.current);
+      console.log('Audio buffer loaded for scenario:', currentScenario?.id, 'Duration:', audioBufferRef.current?.duration);
     } catch (error) {
       console.error('Error loading audio buffer:', error);
     }
@@ -2147,6 +2148,23 @@ function VoiceCustomization() {
     setCustomizations(updatedCustomizations);
   };
 
+  // Helper function to get IndexedDB
+  const getIndexedDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('VoiceCloningDB', 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('voiceCustomizations')) {
+          db.createObjectStore('voiceCustomizations', { keyPath: 'id' });
+        }
+      };
+    });
+  };
+
   // Move saveCustomizedVoice here
   const saveCustomizedVoice = async () => {
     if (!audioBufferRef.current) {
@@ -2175,18 +2193,46 @@ function VoiceCustomization() {
       const renderedBuffer = await offlineCtx.startRendering();
       // Encode to WAV (simple PCM)
       const wavBlob = bufferToWavBlob(renderedBuffer);
-      // Save to localStorage, merging with any existing settings/metadata
+      
+      // Save to IndexedDB instead of localStorage
+      const db = await getIndexedDB();
+      
+      // Store audio blob in IndexedDB
+      const audioData = await wavBlob.arrayBuffer();
+      const customizationData = {
+        id: currentScenario.id,
+        customizedBlob: audioData,
+        type: wavBlob.type,
+        size: wavBlob.size,
+        timestamp: Date.now()
+      };
+      
+      // Use a new transaction for the put operation
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction(['voiceCustomizations'], 'readwrite');
+        const store = transaction.objectStore('voiceCustomizations');
+        
+        const request = store.put(customizationData);
+        
+        request.onsuccess = () => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+        };
+        request.onerror = () => reject(request.error);
+      });
+      
+      // Get existing customizations
       const savedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
       const prev = savedCustomizations[currentScenario.id] || {};
+      
+      // Store metadata in localStorage (much smaller)
       savedCustomizations[currentScenario.id] = {
         ...prev,
-        customizedBlob: {
-          type: wavBlob.type,
-          data: Array.from(new Uint8Array(await wavBlob.arrayBuffer())),
-          size: wavBlob.size
-        }
+        hasCustomizedAudio: true,
+        timestamp: Date.now()
       };
       localStorage.setItem('voiceCustomizations', JSON.stringify(savedCustomizations));
+      
       setSaveStatus('Customized voice saved!');
       // Immediately reload and update state
       const updatedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
@@ -2634,7 +2680,27 @@ function RevisedVoiceEvaluation() {
     setRecordings(savedRecordings);
     
     const savedCustomizations = JSON.parse(localStorage.getItem('voiceCustomizations') || '{}');
-    setCustomizations(savedCustomizations);
+    
+    // Migration: Convert old format to new format
+    const migratedCustomizations = {};
+    for (const [scenarioId, customization] of Object.entries(savedCustomizations)) {
+      if (customization.customizedBlob && customization.customizedBlob.data) {
+        // Old format with audio data in localStorage - convert to new format
+        migratedCustomizations[scenarioId] = {
+          ...customization,
+          hasCustomizedAudio: true,
+          // Remove the large audio data from localStorage
+          customizedBlob: undefined
+        };
+      } else {
+        // Already in new format
+        migratedCustomizations[scenarioId] = customization;
+      }
+    }
+    
+    // Save the migrated data back to localStorage
+    localStorage.setItem('voiceCustomizations', JSON.stringify(migratedCustomizations));
+    setCustomizations(migratedCustomizations);
   }, []);
 
   // Initialize Web Audio API
@@ -2659,6 +2725,7 @@ function RevisedVoiceEvaluation() {
       
       const arrayBuffer = await realBlob.arrayBuffer();
       audioBufferRef.current = await audioContextRef.current.decodeAudioData(arrayBuffer);
+      console.log('Audio buffer loaded for scenario (RevisedVoiceEvaluation):', currentScenario?.id, 'Duration:', audioBufferRef.current?.duration);
     } catch (error) {
       console.error('Error loading audio buffer:', error);
     }
@@ -2718,9 +2785,27 @@ function RevisedVoiceEvaluation() {
     setPlayingVersion(null);
   };
 
+  // Helper function to get IndexedDB
+  const getIndexedDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('VoiceCloningDB', 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('voiceCustomizations')) {
+          db.createObjectStore('voiceCustomizations', { keyPath: 'id' });
+        }
+      };
+    });
+  };
+
   // Load audio buffer when current recording changes
   useEffect(() => {
     if (currentRecording && currentRecording.blob && currentScenario) {
+      console.log('Loading audio buffer for scenario (RevisedVoiceEvaluation):', currentScenario?.id, currentScenario?.title);
       loadAudioBuffer(currentRecording.blob);
     }
   }, [currentRecording, currentScenario]);
@@ -2735,21 +2820,47 @@ function RevisedVoiceEvaluation() {
     }
   };
 
-  const playCustomizedRecording = () => {
-    if (currentCustomization && currentCustomization.customizedBlob) {
-      const { type, data } = currentCustomization.customizedBlob;
-      const blob = new Blob([new Uint8Array(data)], { type });
-      const url = URL.createObjectURL(blob);
-      customizedAudioRef.current.src = url;
-      customizedAudioRef.current.play();
-      setIsPlaying(true);
-      setPlayingVersion('customized');
-      // Clean up the URL after playback ends
-      customizedAudioRef.current.onended = () => {
-        URL.revokeObjectURL(url);
-        setIsPlaying(false);
-        setPlayingVersion(null);
-      };
+  const playCustomizedRecording = async () => {
+    if (currentCustomization && currentCustomization.hasCustomizedAudio) {
+      try {
+        // Load from IndexedDB
+        const db = await getIndexedDB();
+        
+        const result = await new Promise((resolve, reject) => {
+          const transaction = db.transaction(['voiceCustomizations'], 'readonly');
+          const store = transaction.objectStore('voiceCustomizations');
+          
+          const request = store.get(currentScenario.id);
+          
+          request.onsuccess = () => {
+            transaction.oncomplete = () => resolve(request.result);
+            transaction.onerror = () => reject(transaction.error);
+          };
+          request.onerror = () => reject(request.error);
+        });
+        
+        if (result && result.customizedBlob) {
+          const blob = new Blob([result.customizedBlob], { type: result.type });
+          const url = URL.createObjectURL(blob);
+          customizedAudioRef.current.src = url;
+          customizedAudioRef.current.play();
+          setIsPlaying(true);
+          setPlayingVersion('customized');
+          // Clean up the URL after playback ends
+          customizedAudioRef.current.onended = () => {
+            URL.revokeObjectURL(url);
+            setIsPlaying(false);
+            setPlayingVersion(null);
+          };
+        } else {
+          // Fallback: play with WebAudio if customizedBlob is missing
+          playCustomizedAudio();
+        }
+      } catch (error) {
+        console.error('Error loading customized audio from IndexedDB:', error);
+        // Fallback: play with WebAudio
+        playCustomizedAudio();
+      }
     } else {
       // Fallback: play with WebAudio if customizedBlob is missing (should not happen if user saved)
       playCustomizedAudio();
@@ -2897,7 +3008,7 @@ function RevisedVoiceEvaluation() {
                 <Typography variant="body1" color="text.secondary">
                   Pitch: {(currentCustomization.settings ? currentCustomization.settings.pitch : currentCustomization.pitch) || 0} semitones • Speed: {(currentCustomization.settings ? currentCustomization.settings.speed : currentCustomization.speed) || 1.0}x
                 </Typography>
-                {(!currentCustomization.customizedBlob) && (
+                {(!currentCustomization.hasCustomizedAudio) && (
                   <Typography variant="body2" color="error" sx={{ mt: 1 }}>
                     Customized voice not saved. Please return to the customization step and click "Save Customized Voice" to enable playback here.
                   </Typography>
@@ -2956,7 +3067,7 @@ function RevisedVoiceEvaluation() {
                 fullWidth
                 startIcon={isPlaying && playingVersion === 'customized' ? <StopIcon /> : <PlayArrowIcon />}
                 onClick={isPlaying && playingVersion === 'customized' ? stopPlaying : playCustomizedRecording}
-                disabled={!currentRecording || (currentCustomization && !currentCustomization.customizedBlob)}
+                disabled={!currentRecording || (currentCustomization && !currentCustomization.hasCustomizedAudio)}
                 size="large"
                 sx={{ py: 2 }}
               >
