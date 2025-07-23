@@ -1,13 +1,1213 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Customization Study</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .page {
+            display: none;
+            padding: 40px;
+            min-height: 500px;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .scenario-banner {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 15px;
+            margin: -40px -40px 30px -40px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .checkbox-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .checkbox-item:hover {
+            background: #e3f2fd;
+            border-color: #4facfe;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        .checkbox-item.selected {
+            background: #e3f2fd;
+            border-color: #4facfe;
+        }
+        
+        .persona-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        .persona-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .persona-item:hover {
+            background: #e3f2fd;
+            border-color: #4facfe;
+        }
+        
+        .persona-item.selected {
+            background: #4facfe;
+            color: white;
+            border-color: #4facfe;
+        }
+        
+        .recording-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        
+        .record-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .record-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .record-btn.recording {
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .play-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .play-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+        }
+        
+        .play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .slider-container {
+            margin: 20px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4facfe;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4facfe;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .rating-scale {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+        }
+        
+        .rating-scale input[type="radio"] {
+            margin: 0 5px;
+        }
+        
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .nav-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .script-display {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4facfe;
+            margin: 20px 0;
+            font-style: italic;
+            line-height: 1.6;
+        }
+        
+        .audio-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .comparison-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 25px 0;
+        }
+        
+        .audio-player {
+            text-align: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .progress-bar {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Voice Customization Study</h1>
+            <p>Help us understand voice synthesis preferences in different contexts</p>
+            <div class="progress-bar">
+                <div class="progress" id="progressBar"></div>
+            </div>
+        </div>
+
+        <!-- Page 1: Personal Information -->
+        <div class="page active" id="page1">
+            <h2>Personal Information</h2>
+            <p class="description">Please provide your basic information to get started with the study.</p>
+            
+            <div class="form-group">
+                <label for="name">Full Name:</label>
+                <input type="text" id="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="netid">Net ID:</label>
+                <input type="text" id="netid" required>
+            </div>
+            
+            <div class="navigation">
+                <div></div>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 2: Scenario Selection -->
+        <div class="page" id="page2">
+            <h2>Scenario Selection</h2>
+            <p class="description">Choose the scenarios where you would like to use voice synthesis for speech interactions. You can select multiple scenarios that interest you.</p>
+            
+            <div class="checkbox-group">
+                <div class="checkbox-item" data-scenario="1">
+                    <input type="checkbox" id="scenario1" value="1">
+                    <label for="scenario1">
+                        <strong>Online Team Meeting</strong><br>
+                        <small>Formal • Synchronous • Private</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="2">
+                    <input type="checkbox" id="scenario2" value="2">
+                    <label for="scenario2">
+                        <strong>Video Portfolio to Recruiter</strong><br>
+                        <small>Formal • Asynchronous • Private</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="3">
+                    <input type="checkbox" id="scenario3" value="3">
+                    <label for="scenario3">
+                        <strong>Virtual Conference Presentation</strong><br>
+                        <small>Formal • Synchronous • Public</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="4">
+                    <input type="checkbox" id="scenario4" value="4">
+                    <label for="scenario4">
+                        <strong>Student Representative Speech</strong><br>
+                        <small>Formal • Asynchronous • Public</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="5">
+                    <input type="checkbox" id="scenario5" value="5">
+                    <label for="scenario5">
+                        <strong>Online Game with Friends</strong><br>
+                        <small>Informal • Synchronous • Private</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="6">
+                    <input type="checkbox" id="scenario6" value="6">
+                    <label for="scenario6">
+                        <strong>Sending a Birthday Message</strong><br>
+                        <small>Informal • Asynchronous • Private</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="7">
+                    <input type="checkbox" id="scenario7" value="7">
+                    <label for="scenario7">
+                        <strong>Live-streaming on YouTube</strong><br>
+                        <small>Informal • Synchronous • Public</small>
+                    </label>
+                </div>
+                <div class="checkbox-item" data-scenario="8">
+                    <input type="checkbox" id="scenario8" value="8">
+                    <label for="scenario8">
+                        <strong>Voice Profile on Dating App</strong><br>
+                        <small>Informal • Asynchronous • Public</small>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 3: Script Creation -->
+        <div class="page" id="page3">
+            <div class="scenario-banner" id="scenarioBanner">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Script Creation</h2>
+            <p class="description">Create a short paragraph (1-2 minutes of speech) for the selected scenario. You can write it yourself or use ChatGPT to help create a draft, then modify it as needed.</p>
+            
+            <div class="form-group">
+                <label for="script">Your Script:</label>
+                <textarea id="script" rows="6" placeholder="Write or paste your script here..."></textarea>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 4: Social Persona Selection -->
+        <div class="page" id="page4">
+            <div class="scenario-banner" id="scenarioBanner4">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Social Persona Selection</h2>
+            <p class="description">Think about the social persona you want to reveal through your speech. Select all the characteristics that apply to how you want to come across in this scenario.</p>
+            
+            <div class="form-group">
+                <label>Choose your desired social personas (select all that apply):</label>
+                <div class="persona-grid">
+                    <div class="persona-item" data-persona="professional">Professional</div>
+                    <div class="persona-item" data-persona="friendly">Friendly</div>
+                    <div class="persona-item" data-persona="polite">Polite</div>
+                    <div class="persona-item" data-persona="confident">Confident</div>
+                    <div class="persona-item" data-persona="extroverted">Extroverted</div>
+                    <div class="persona-item" data-persona="passionate">Passionate</div>
+                    <div class="persona-item" data-persona="empathetic">Empathetic</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="contextFamiliarity">How familiar are you with recording your voice in this context?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="familiarity" value="1"> 1</label>
+                    <label><input type="radio" name="familiarity" value="2"> 2</label>
+                    <label><input type="radio" name="familiarity" value="3"> 3</label>
+                    <label><input type="radio" name="familiarity" value="4"> 4</label>
+                    <label><input type="radio" name="familiarity" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Not familiar at all</span>
+                    <span>Very familiar</span>
+                </div>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 5: Voice Recording -->
+        <div class="page" id="page5">
+            <div class="scenario-banner" id="scenarioBanner5">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Voice Recording</h2>
+            <p class="description">Please record your voice reading the script you created. You can re-record as many times as you want until you're satisfied with the result.</p>
+            
+            <div class="script-display" id="scriptDisplay">
+                Your script will appear here...
+            </div>
+            
+            <div class="recording-section">
+                <button class="record-btn" id="recordBtn" onclick="toggleRecording()">Start Recording</button>
+                <button class="play-btn" id="playBtn" onclick="playRecording()" disabled>Play Recording</button>
+                <p id="recordingStatus">Click "Start Recording" to begin</p>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 6: Original Recording Evaluation -->
+        <div class="page" id="page6">
+            <div class="scenario-banner" id="scenarioBanner6">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Recording Evaluation</h2>
+            <p class="description">Please evaluate your recorded voice in terms of satisfaction and perceived confidence. You can replay your recording using the button below.</p>
+            
+            <div class="audio-controls">
+                <button class="play-btn" onclick="playOriginalRecording()">Play Your Recording</button>
+            </div>
+            
+            <div class="form-group">
+                <label>How satisfied are you with your recording?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="satisfaction" value="1"> 1</label>
+                    <label><input type="radio" name="satisfaction" value="2"> 2</label>
+                    <label><input type="radio" name="satisfaction" value="3"> 3</label>
+                    <label><input type="radio" name="satisfaction" value="4"> 4</label>
+                    <label><input type="radio" name="satisfaction" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Not satisfied at all</span>
+                    <span>Very satisfied</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>How confident do you sound in this recording?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="confidence" value="1"> 1</label>
+                    <label><input type="radio" name="confidence" value="2"> 2</label>
+                    <label><input type="radio" name="confidence" value="3"> 3</label>
+                    <label><input type="radio" name="confidence" value="4"> 4</label>
+                    <label><input type="radio" name="confidence" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Not confident at all</span>
+                    <span>Very confident</span>
+                </div>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 7: Voice Customization -->
+        <div class="page" id="page7">
+            <div class="scenario-banner" id="scenarioBanner7">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Voice Customization</h2>
+            <p class="description">Customize your voice recording by adjusting various vocal characteristics. Move the sliders to indicate how you'd like to modify your voice.</p>
+            
+            <div class="form-group">
+                <h3>Vocal Identity</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Personality</span>
+                    </div>
+                    <select id="personality">
+                        <option value="">Select personality type...</option>
+                        <option value="professional">Professional</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="authoritative">Authoritative</option>
+                        <option value="casual">Casual</option>
+                        <option value="energetic">Energetic</option>
+                    </select>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Emotions</span>
+                    </div>
+                    <select id="emotions">
+                        <option value="">Select emotional tone...</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="excited">Excited</option>
+                        <option value="calm">Calm</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                        <option value="serious">Serious</option>
+                    </select>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Gender</span>
+                    </div>
+                    <select id="gender">
+                        <option value="">Select gender presentation...</option>
+                        <option value="masculine">More Masculine</option>
+                        <option value="feminine">More Feminine</option>
+                        <option value="neutral">Gender Neutral</option>
+                        <option value="current">Keep Current</option>
+                    </select>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Age</span>
+                    </div>
+                    <select id="age">
+                        <option value="">Select age presentation...</option>
+                        <option value="younger">Younger</option>
+                        <option value="current">Keep Current</option>
+                        <option value="older">Older</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <h3>Vocal Characteristics</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Low</span>
+                        <span>Pitch</span>
+                        <span>High</span>
+                    </div>
+                    <input type="range" class="slider" id="pitch" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Slow</span>
+                        <span>Speed</span>
+                        <span>Fast</span>
+                    </div>
+                    <input type="range" class="slider" id="speed" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Regular</span>
+                        <span>Consistency</span>
+                        <span>Irregular</span>
+                    </div>
+                    <input type="range" class="slider" id="consistency" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Neutral</span>
+                        <span>Accent</span>
+                        <span>Distinctive</span>
+                    </div>
+                    <input type="range" class="slider" id="accent" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Blurred</span>
+                        <span>Clarity</span>
+                        <span>Clear</span>
+                    </div>
+                    <input type="range" class="slider" id="clarity" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Neutral</span>
+                        <span>Expressiveness</span>
+                        <span>Emotional</span>
+                    </div>
+                    <input type="range" class="slider" id="expressiveness" min="0" max="100" value="50">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Neutral</span>
+                        <span>Intonation</span>
+                        <span>Fluctuating</span>
+                    </div>
+                    <input type="range" class="slider" id="intonation" min="0" max="100" value="50">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="customizationComments">Additional comments on how you want to change your recording:</label>
+                <textarea id="customizationComments" rows="3" placeholder="e.g., removing laugh in the middle, reducing background noise, making voice clearer..."></textarea>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <!-- Page 8: Voice Comparison -->
+        <div class="page" id="page8">
+            <div class="scenario-banner" id="scenarioBanner8">Current Scenario: [Scenario Name]</div>
+            
+            <h2>Voice Comparison</h2>
+            <p class="description">Compare your original recording with the customized version. Listen to both versions and evaluate the differences.</p>
+            
+            <div class="comparison-section">
+                <div class="audio-player">
+                    <h3>Original Recording</h3>
+                    <button class="play-btn" onclick="playOriginalRecording()">Play Original</button>
+                </div>
+                <div class="audio-player">
+                    <h3>Customized Recording</h3>
+                    <button class="play-btn" onclick="playCustomizedRecording()">Play Customized</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>How satisfied are you with the customized recording?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="customizedSatisfaction" value="1"> 1</label>
+                    <label><input type="radio" name="customizedSatisfaction" value="2"> 2</label>
+                    <label><input type="radio" name="customizedSatisfaction" value="3"> 3</label>
+                    <label><input type="radio" name="customizedSatisfaction" value="4"> 4</label>
+                    <label><input type="radio" name="customizedSatisfaction" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Not satisfied at all</span>
+                    <span>Very satisfied</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>How much does the customized voice recording sound like you?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="soundsLikeMe" value="1"> 1</label>
+                    <label><input type="radio" name="soundsLikeMe" value="2"> 2</label>
+                    <label><input type="radio" name="soundsLikeMe" value="3"> 3</label>
+                    <label><input type="radio" name="soundsLikeMe" value="4"> 4</label>
+                    <label><input type="radio" name="soundsLikeMe" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Doesn't sound like me at all</span>
+                    <span>Sounds exactly like me</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Which version do you prefer overall?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="preference" value="original"> Original</label>
+                    <label><input type="radio" name="preference" value="customized"> Customized</label>
+                    <label><input type="radio" name="preference" value="both"> Both equally</label>
+                </div>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="nextScenario()">Next Scenario</button>
+            </div>
+        </div>
+
+        <!-- Page 9: System Evaluation -->
+        <div class="page" id="page9">
+            <h2>System Evaluation</h2>
+            <p class="description">Please evaluate the overall system and your experience with the voice customization process.</p>
+            
+            <div class="form-group">
+                <label>How easy was it to use this voice customization system?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="systemEase" value="1"> 1</label>
+                    <label><input type="radio" name="systemEase" value="2"> 2</label>
+                    <label><input type="radio" name="systemEase" value="3"> 3</label>
+                    <label><input type="radio" name="systemEase" value="4"> 4</label>
+                    <label><input type="radio" name="systemEase" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Very difficult</span>
+                    <span>Very easy</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>How helpful were the voice customization features?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="systemHelpful" value="1"> 1</label>
+                    <label><input type="radio" name="systemHelpful" value="2"> 2</label>
+                    <label><input type="radio" name="systemHelpful" value="3"> 3</label>
+                    <label><input type="radio" name="systemHelpful" value="4"> 4</label>
+                    <label><input type="radio" name="systemHelpful" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Not helpful at all</span>
+                    <span>Very helpful</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>How likely would you be to use voice customization in real applications?</label>
+                <div class="rating-scale">
+                    <label><input type="radio" name="systemLikelihood" value="1"> 1</label>
+                    <label><input type="radio" name="systemLikelihood" value="2"> 2</label>
+                    <label><input type="radio" name="systemLikelihood" value="3"> 3</label>
+                    <label><input type="radio" name="systemLikelihood" value="4"> 4</label>
+                    <label><input type="radio" name="systemLikelihood" value="5"> 5</label>
+                </div>
+                <div class="scale-labels">
+                    <span>Very unlikely</span>
+                    <span>Very likely</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="systemFeedback">Additional feedback or suggestions:</label>
+                <textarea id="systemFeedback" rows="4" placeholder="Please share any additional thoughts about your experience..."></textarea>
+            </div>
+            
+            <div class="navigation">
+                <button class="nav-btn" onclick="prevPage()">Back</button>
+                <button class="nav-btn" onclick="finishStudy()">Finish Study</button>
+            </div>
+        </div>
+
+        <!-- Final Page: Thank You -->
+        <div class="page" id="pageFinal">
+            <div style="text-align: center; padding: 40px;">
+                <h2>Thank You!</h2>
+                <p class="description">Your participation in this voice customization study is complete. Your responses will help us better understand user preferences for voice synthesis in different contexts.</p>
+                <div style="margin-top: 40px;">
+                    <div style="background: linear-gradient(45deg, #4ecdc4, #44a08d); color: white; padding: 20px; border-radius: 10px; display: inline-block;">
+                        <h3>Study Completed Successfully!</h3>
+                        <p>Your data has been recorded.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentPage = 1;
+        let totalPages = 9;
+        let selectedScenarios = [];
+        let currentScenarioIndex = 0;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let originalRecording = null;
+        let customizedRecording = null;
+        let studyData = {};
+
+        // Scenario data
+        const scenarios = {
+            1: { name: "Online Team Meeting", type: "Formal • Synchronous • Private" },
+            2: { name: "Video Portfolio to Recruiter", type: "Formal • Asynchronous • Private" },
+            3: { name: "Virtual Conference Presentation", type: "Formal • Synchronous • Public" },
+            4: { name: "Student Representative Speech", type: "Formal • Asynchronous • Public" },
+            5: { name: "Online Game with Friends", type: "Informal • Synchronous • Private" },
+            6: { name: "Sending a Birthday Message", type: "Informal • Asynchronous • Private" },
+            7: { name: "Live-streaming on YouTube", type: "Informal • Synchronous • Public" },
+            8: { name: "Voice Profile on Dating App", type: "Informal • Asynchronous • Public" }
+        };
+
+        // Initialize audio recording
+        async function initializeRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    originalRecording = URL.createObjectURL(audioBlob);
+                    audioChunks = [];
+                    document.getElementById('playBtn').disabled = false;
+                    document.getElementById('recordingStatus').textContent = 'Recording saved! You can play it back or record again.';
+                };
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                document.getElementById('recordingStatus').textContent = 'Error: Could not access microphone. Please check permissions.';
+            }
+        }
+
+        // Toggle recording
+        function toggleRecording() {
+            const recordBtn = document.getElementById('recordBtn');
+            const statusEl = document.getElementById('recordingStatus');
+            
+            if (!isRecording) {
+                if (!mediaRecorder) {
+                    initializeRecording().then(() => {
+                        startRecording();
+                    });
+                } else {
+                    startRecording();
+                }
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            isRecording = true;
+            audioChunks = [];
+            mediaRecorder.start();
+            
+            const recordBtn = document.getElementById('recordBtn');
+            const statusEl = document.getElementById('recordingStatus');
+            
+            recordBtn.textContent = 'Stop Recording';
+            recordBtn.classList.add('recording');
+            statusEl.textContent = 'Recording in progress...';
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            mediaRecorder.stop();
+            
+            const recordBtn = document.getElementById('recordBtn');
+            recordBtn.textContent = 'Start Recording';
+            recordBtn.classList.remove('recording');
+        }
+
+        // Play recordings
+        function playRecording() {
+            if (originalRecording) {
+                const audio = new Audio(originalRecording);
+                audio.play();
+            }
+        }
+
+        function playOriginalRecording() {
+            if (originalRecording) {
+                const audio = new Audio(originalRecording);
+                audio.play();
+            }
+        }
+
+        function playCustomizedRecording() {
+            // In a real implementation, this would play the customized version
+            // For now, we'll play the original recording as a placeholder
+            if (originalRecording) {
+                const audio = new Audio(originalRecording);
+                audio.play();
+            }
+        }
+
+        // Page navigation
+        function nextPage() {
+            if (validateCurrentPage()) {
+                saveCurrentPageData();
+                
+                if (currentPage === 2) {
+                    // After scenario selection, start the scenario loop
+                    selectedScenarios = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+                    if (selectedScenarios.length === 0) {
+                        alert('Please select at least one scenario.');
+                        return;
+                    }
+                    currentScenarioIndex = 0;
+                    updateScenarioBanners();
+                }
+                
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    showPage(currentPage);
+                    updateProgressBar();
+                    
+                    // Initialize recording when reaching the recording page
+                    if (currentPage === 5) {
+                        initializeRecording();
+                        updateScriptDisplay();
+                    }
+                }
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                showPage(currentPage);
+                updateProgressBar();
+            }
+        }
+
+        function nextScenario() {
+            saveCurrentPageData();
+            currentScenarioIndex++;
+            
+            if (currentScenarioIndex < selectedScenarios.length) {
+                // Go back to script creation for next scenario
+                currentPage = 3;
+                showPage(currentPage);
+                updateScenarioBanners();
+                clearScenarioData();
+            } else {
+                // All scenarios completed, go to system evaluation
+                currentPage = 9;
+                showPage(currentPage);
+            }
+            updateProgressBar();
+        }
+
+        function finishStudy() {
+            saveCurrentPageData();
+            showPage('final');
+            // Here you would typically send the data to a server
+            console.log('Study completed. Data:', studyData);
+        }
+
+        function showPage(pageNum) {
+            // Hide all pages
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => page.classList.remove('active'));
+            
+            // Show current page
+            if (pageNum === 'final') {
+                document.getElementById('pageFinal').classList.add('active');
+            } else {
+                document.getElementById(`page${pageNum}`).classList.add('active');
+            }
+        }
+
+        function updateProgressBar() {
+            const progress = (currentPage / totalPages) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+        }
+
+        function updateScenarioBanners() {
+            const currentScenario = selectedScenarios[currentScenarioIndex];
+            const scenarioText = `${scenarios[currentScenario].name} (${scenarios[currentScenario].type})`;
+            
+            // Update all scenario banners
+            for (let i = 3; i <= 8; i++) {
+                const banner = document.getElementById(`scenarioBanner${i}`);
+                if (banner) {
+                    banner.textContent = `Current Scenario: ${scenarioText}`;
+                }
+            }
+            
+            const banner = document.getElementById('scenarioBanner');
+            if (banner) {
+                banner.textContent = `Current Scenario: ${scenarioText}`;
+            }
+        }
+
+        function updateScriptDisplay() {
+            const script = document.getElementById('script').value;
+            const display = document.getElementById('scriptDisplay');
+            if (display && script) {
+                display.textContent = script;
+            }
+        }
+
+        function clearScenarioData() {
+            // Clear form data for new scenario
+            document.getElementById('script').value = '';
+            document.querySelectorAll('.persona-item').forEach(item => item.classList.remove('selected'));
+            document.querySelectorAll('input[name="familiarity"]').forEach(radio => radio.checked = false);
+            
+            // Reset recording
+            originalRecording = null;
+            document.getElementById('playBtn').disabled = true;
+            document.getElementById('recordingStatus').textContent = 'Click "Start Recording" to begin';
+            
+            // Reset sliders
+            document.querySelectorAll('.slider').forEach(slider => slider.value = 50);
+            document.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+            document.getElementById('customizationComments').value = '';
+        }
+
+        function validateCurrentPage() {
+            switch (currentPage) {
+                case 1:
+                    return document.getElementById('name').value.trim() !== '' && 
+                           document.getElementById('netid').value.trim() !== '';
+                case 2:
+                    return document.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+                case 3:
+                    return document.getElementById('script').value.trim() !== '';
+                case 4:
+                    return document.querySelectorAll('.persona-item.selected').length > 0 &&
+                           document.querySelector('input[name="familiarity"]:checked') !== null;
+                case 5:
+                    return originalRecording !== null;
+                case 6:
+                    return document.querySelector('input[name="satisfaction"]:checked') !== null &&
+                           document.querySelector('input[name="confidence"]:checked') !== null;
+                case 8:
+                    return document.querySelector('input[name="customizedSatisfaction"]:checked') !== null &&
+                           document.querySelector('input[name="soundsLikeMe"]:checked') !== null &&
+                           document.querySelector('input[name="preference"]:checked') !== null;
+                case 9:
+                    return document.querySelector('input[name="systemEase"]:checked') !== null &&
+                           document.querySelector('input[name="systemHelpful"]:checked') !== null &&
+                           document.querySelector('input[name="systemLikelihood"]:checked') !== null;
+                default:
+                    return true;
+            }
+        }
+
+        function saveCurrentPageData() {
+            // Save data from current page to studyData object
+            const scenarioKey = selectedScenarios ? `scenario_${selectedScenarios[currentScenarioIndex]}` : 'general';
+            
+            if (!studyData[scenarioKey]) {
+                studyData[scenarioKey] = {};
+            }
+            
+            switch (currentPage) {
+                case 1:
+                    studyData.personalInfo = {
+                        name: document.getElementById('name').value,
+                        netid: document.getElementById('netid').value
+                    };
+                    break;
+                case 2:
+                    studyData.selectedScenarios = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+                    break;
+                case 3:
+                    studyData[scenarioKey].script = document.getElementById('script').value;
+                    break;
+                case 4:
+                    studyData[scenarioKey].personas = Array.from(document.querySelectorAll('.persona-item.selected')).map(item => item.dataset.persona);
+                    studyData[scenarioKey].familiarity = document.querySelector('input[name="familiarity"]:checked')?.value;
+                    break;
+                case 6:
+                    studyData[scenarioKey].originalEvaluation = {
+                        satisfaction: document.querySelector('input[name="satisfaction"]:checked')?.value,
+                        confidence: document.querySelector('input[name="confidence"]:checked')?.value
+                    };
+                    break;
+                case 7:
+                    studyData[scenarioKey].customization = {
+                        personality: document.getElementById('personality').value,
+                        emotions: document.getElementById('emotions').value,
+                        gender: document.getElementById('gender').value,
+                        age: document.getElementById('age').value,
+                        pitch: document.getElementById('pitch').value,
+                        speed: document.getElementById('speed').value,
+                        consistency: document.getElementById('consistency').value,
+                        accent: document.getElementById('accent').value,
+                        clarity: document.getElementById('clarity').value,
+                        expressiveness: document.getElementById('expressiveness').value,
+                        intonation: document.getElementById('intonation').value,
+                        comments: document.getElementById('customizationComments').value
+                    };
+                    break;
+                case 8:
+                    studyData[scenarioKey].comparison = {
+                        customizedSatisfaction: document.querySelector('input[name="customizedSatisfaction"]:checked')?.value,
+                        soundsLikeMe: document.querySelector('input[name="soundsLikeMe"]:checked')?.value,
+                        preference: document.querySelector('input[name="preference"]:checked')?.value
+                    };
+                    break;
+                case 9:
+                    studyData.systemEvaluation = {
+                        ease: document.querySelector('input[name="systemEase"]:checked')?.value,
+                        helpful: document.querySelector('input[name="systemHelpful"]:checked')?.value,
+                        likelihood: document.querySelector('input[name="systemLikelihood"]:checked')?.value,
+                        feedback: document.getElementById('systemFeedback').value
+                    };
+                    break;
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Checkbox selection for scenarios
+            document.querySelectorAll('.checkbox-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const checkbox = this.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    this.classList.toggle('selected', checkbox.checked);
+                });
+            });
+
+            // Persona selection
+            document.querySelectorAll('.persona-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
+            });
+
+            // Script textarea change
+            document.getElementById('script').addEventListener('input', function() {
+                updateScriptDisplay();
+            });
+
+            // Initialize
+            updateProgressBar();
+        });
+    </script>
+</body>
 </html>
+                    
